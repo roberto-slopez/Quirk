@@ -20,8 +20,28 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  # Run tests once on the tag commit before paying for 3-way builds.
+  # Fails fast if the tagged commit doesn't pass `cargo test`.
+  test:
+    name: Test (ubuntu)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache cargo registry & target
+        uses: Swatinem/rust-cache@v2
+        with:
+          cache-on-failure: true
+
+      - name: Run unit tests
+        run: cargo test --all-features --locked
+
   build:
     name: Build (${{ matrix.label }})
+    needs: [test]
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
@@ -30,11 +50,6 @@ jobs:
           - os: ubuntu-latest
             target: x86_64-unknown-linux-gnu
             label: linux-x86_64
-            binary: quirk
-            ext: ""
-          - os: macos-13
-            target: x86_64-apple-darwin
-            label: macos-x86_64
             binary: quirk
             ext: ""
           - os: macos-latest
