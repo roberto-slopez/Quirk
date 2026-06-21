@@ -1,0 +1,24 @@
+# Rust / Cargo
+/target/
+**/*.rs.bk
+Cargo.lock
+
+# Editor / OS
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+
+# Local artifacts
+*.png
+!docs/**/*.png
+!assets/**/*.png
+
+# Test / coverage
+coverage/
+*.lcov
+
+# Just / task runner
+.justfile.local

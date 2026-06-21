@@ -1,0 +1,146 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*.*.*"
+      - "v*"
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Tag to release (e.g. v0.2.0). Leave empty to use the latest tag."
+        required: false
+        default: ""
+
+permissions:
+  contents: write   # needed to create the GitHub release and upload assets
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: Build (${{ matrix.label }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            target: x86_64-unknown-linux-gnu
+            label: linux-x86_64
+            binary: quirk
+            ext: ""
+          - os: macos-13
+            target: x86_64-apple-darwin
+            label: macos-x86_64
+            binary: quirk
+            ext: ""
+          - os: macos-latest
+            target: aarch64-apple-darwin
+            label: macos-aarch64
+            binary: quirk
+            ext: ""
+          - os: windows-latest
+            target: x86_64-pc-windows-msvc
+            label: windows-x86_64
+            binary: quirk.exe
+            ext: ".exe"
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache cargo registry & target
+        uses: Swatinem/rust-cache@v2
+        with:
+          cache-on-failure: true
+
+      - name: Build release (optimized, stripped)
+        run: cargo build --release --locked --target ${{ matrix.target }}
+
+      - name: Stage binary + README
+        shell: bash
+        run: |
+          mkdir -p stage
+          cp "target/${{ matrix.target }}/release/${{ matrix.binary }}" "stage/${{ matrix.binary }}${{ matrix.ext }}"
+          cp README.md "stage/README.md"
+          if [ -f LICENSE ]; then cp LICENSE "stage/LICENSE"; fi
+
+      - name: Package
+        shell: bash
+        run: |
+          cd stage
+          if [[ "${{ runner.os }}" == "Windows" ]]; then
+            # 7-Zip is preinstalled on windows-latest.
+            7z a "../quirk-${{ matrix.label }}.zip" .
+          else
+            tar -czf "../quirk-${{ matrix.label }}.tar.gz" .
+          fi
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: quirk-${{ matrix.label }}-package
+          path: |
+            quirk-${{ matrix.label }}.tar.gz
+            quirk-${{ matrix.label }}.zip
+          if-no-files-found: error
+
+  publish:
+    name: Publish GitHub release
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Resolve version
+        id: version
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ "${GITHUB_EVENT_NAME}" = "workflow_dispatch" ]; then
+            TAG="${INPUTS_TAG:-}"
+            if [ -z "$TAG" ]; then
+              TAG="$(git describe --tags --abbrev=0)"
+            fi
+          else
+            TAG="${GITHUB_REF#refs/tags/}"
+          fi
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          # version = tag without leading "v"
+          echo "version=${TAG#v}" >> "$GITHUB_OUTPUT"
+
+      - name: Download all build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: dist
+
+      - name: Flatten & list artifacts
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p release
+          find dist -type f \( -name '*.tar.gz' -o -name '*.zip' \) -print -exec cp {} release/ \;
+          echo "--- final artifacts ---"
+          ls -lh release
+
+      - name: Generate release notes
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          gh release create "${{ steps.version.outputs.tag }}" \
+            --repo "$GITHUB_REPOSITORY" \
+            --title "Quirk ${{ steps.version.outputs.tag }}" \
+            --generate-notes \
+            --draft
+
+      - name: Upload assets to release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.version.outputs.tag }}
+          files: release/*
+          fail_on_unmatched_files: true
