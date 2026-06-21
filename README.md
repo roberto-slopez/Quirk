@@ -6,7 +6,7 @@ Quirk is a single-window native app that turns anything from a plain URL to a Wi
 handshake, a vCard, a calendar event, or a Bitcoin payment URI into a clean,
 exportable QR code — fully parameterizable, fully offline, fully local.
 
-![Quirk screenshot placeholder](docs/screenshot.png)
+![Quirk screenshot](screenshot.png)
 
 ## Features
 

@@ -1,7 +1,11 @@
 # Rust / Cargo
 /target/
 **/*.rs.bk
-Cargo.lock
+
+# Note: Cargo.lock is COMMITTED for this binary crate so that CI's
+# `cargo test --locked` / `cargo build --locked` commands succeed and
+# builds are reproducible across machines. For library crates we'd
+# gitignore it instead.
 
 # Editor / OS
 .vscode/
@@ -11,8 +15,9 @@ Cargo.lock
 .DS_Store
 Thumbs.db
 
-# Local artifacts
+# Local artifacts (ignore PNGs by default; allow the README screenshot)
 *.png
+!/screenshot.png
 !docs/**/*.png
 !assets/**/*.png
 
