@@ -1,9 +1,9 @@
 name: CI
 
 on:
-  # Run only after a change lands on main (i.e. after a PR merge) — not on
-  # PR open/update. Releases add their own tag-triggered workflow.
-  push:
+  # Run on pull requests to validate changes before they land. Releases add
+  # their own tag-triggered workflow.
+  pull_request:
     branches: [main, master]
   workflow_dispatch:
 

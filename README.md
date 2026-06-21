@@ -70,9 +70,5 @@ all-day events.
 
 ## License
 
-Dual-licensed under either of:
-
-- Apache License, Version 2.0
-- MIT License
-
-at your option.
+Licensed under the Apache License, Version 2.0. See [`LICENSE`](LICENSE) for
+the full text.
